@@ -1,0 +1,6 @@
+[package]
+name = "inventorium"
+version = "0.1.0"
+authors = ["John Kalyan <john.r.kalyan@gmail.com>"]
+
+[dependencies]
