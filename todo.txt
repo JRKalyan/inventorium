@@ -1,0 +1,10 @@
+todo:
+- fix shrinking
+- go through todos
+- sound / music
+- implement turret
+- lock the fps and use actual delta t 
+- after locking fps, balance player movement
+- normalize velocity for player before multiplying
+- figure out how to publish
+
