@@ -4,3 +4,6 @@ version = "0.1.0"
 authors = ["John Kalyan <john.r.kalyan@gmail.com>"]
 
 [dependencies]
+ggez = "0.4"
+find_folder = "*"
+rand = "*"
