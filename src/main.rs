@@ -11,8 +11,8 @@ use ggez::nalgebra as na;
 use ggez::timer;
 use ggez::{Context, GameResult};
 
-const WINDOW_WIDTH: f32 = 400.0;
-const WINDOW_HEIGHT: f32 = 400.0;
+const WINDOW_WIDTH: f32 = 1200.0;
+const WINDOW_HEIGHT: f32 = 800.0;
 
 const SHRINK: f32 = 20.0;
 
@@ -180,7 +180,7 @@ impl ggez::event::EventHandler for State {
         graphics::set_color(ctx, BACK_COLOR);
         let score_location = Point2::new(20.0, 3.0);
         let ammo_location = Point2::new(120.0, 3.0);
-        let over_location = Point2::new(WINDOW_WIDTH / 2.0 - 150.0, WINDOW_HEIGHT / 2.0);
+        let over_location = Point2::new(WINDOW_WIDTH / 2.0 - 170.0, WINDOW_HEIGHT / 2.0);
         if self.over {
             graphics::draw(ctx, &self.over_display, over_location, 0.0);
         }
@@ -300,13 +300,12 @@ fn main() {
 
 
 fn create_player() -> Object {
-    // TODO spawn the player in a better spot
     Object {
         pos: Point2::new(30.0, WINDOW_HEIGHT / 2.0),
         vel: Vector2::new(0.0, 0.0),
         alive: true,
         radius: PLAYER_RADIUS,
-        speed: 100.0,
+        speed: 300.0,
     }
 }
 
@@ -363,7 +362,7 @@ impl State {
             pos: self.random_location(radius),
             alive: true,
             radius: radius,
-            speed: rng.gen_range(100.0,200.0),
+            speed: rng.gen_range(250.0,400.0),
             vel: vel,
         };
         self.enemies.push(enemy);
@@ -395,7 +394,7 @@ impl State {
         let shot = Object {
             radius: 3.0,
             vel: self.angle,
-            speed: 200.0,
+            speed: 500.0,
             alive: true,
             pos: spawn
         };
@@ -519,11 +518,12 @@ fn clamp_object(obj: &mut Object, boundary: Rect) {
 }
 
 fn move_object(obj: &mut Object, dt: f32) {
-        let vel = obj.vel;
-        //let mag = vel.norm_sq.sqrt() * obj.speed;
-        // calculate the unit vector with the correct direction,
-        // multiply it by the speed and then use that to move distance
-        // according to how much time has passed (multiply the vector by time and move)
+        let mut vel = obj.vel;
+        println!("x{} y{}", vel.x, vel.y);
+        if (vel.x != 0.0 || vel.y != 0.0) {
+            vel = vel.normalize();
+        }
+        println!("x{} y{}", vel.x, vel.y);
         obj.pos.x += vel.x * obj.speed * dt;
         obj.pos.y += vel.y * obj.speed * dt;
 }
