@@ -84,6 +84,11 @@ struct State {
     over_display: Text,
     font: Font,
     over: bool,
+    fire_sound: audio::Source,
+    end_sound: audio::Source,
+    enemy_sound: audio::Source,
+    shrink_sound: audio::Source,
+    coin_sound: audio::Source,
 }
 
 impl ggez::event::EventHandler for State {
@@ -107,6 +112,7 @@ impl ggez::event::EventHandler for State {
                     Some(t) => Some(t + SHRINK),
                     None => Some(SHRINK)
                 };
+				let _ = self.shrink_sound.play();
             }
         }
 
@@ -117,6 +123,7 @@ impl ggez::event::EventHandler for State {
             self.spawn_enemy();
             self.coin.pos = self.random_location(self.coin.radius);
             clamp_object(&mut self.coin, self.boundary);
+			let _ = self.coin_sound.play();
         }
         for enemy in &mut self.enemies {
             if enemy.collides_with(&self.player) {
@@ -132,6 +139,7 @@ impl ggez::event::EventHandler for State {
                     shot.alive = false;
                     self.score += 1;
                     self.dirty = true;
+					let _ = self.enemy_sound.play();
                 }
             }
         }
@@ -398,6 +406,7 @@ impl State {
             alive: true,
             pos: spawn
         };
+	let _ = self.fire_sound.play();
         self.shots.push(shot);
     }
 
@@ -405,6 +414,11 @@ impl State {
         let score_display = Text::new(ctx, "score:", &font)?;
         let ammo_display = Text::new(ctx, "ammo:", &font)?;
         let over_display = Text::new(ctx, "game over (ENTER to play again, ESC to quit)", &font)?;
+    	let fire_sound = audio::Source::new(ctx, "/fire.ogg").unwrap();
+    	let end_sound = audio::Source::new(ctx, "/end.ogg").unwrap();
+    	let enemy_sound = audio::Source::new(ctx, "/killenemy.ogg").unwrap();
+    	let coin_sound = audio::Source::new(ctx, "/Pickup_Coin.ogg").unwrap();
+    	let shrink_sound = audio::Source::new(ctx, "/shrink.ogg").unwrap();
         let padding = 20.0;
         let s = State { 
             player: create_player(),
@@ -426,7 +440,12 @@ impl State {
             ammo_display: ammo_display,
             over_display: over_display,
             font: font,
-            over: false
+            over: false,
+	        fire_sound: fire_sound,
+			end_sound: end_sound,
+			enemy_sound: enemy_sound,
+			shrink_sound: shrink_sound,
+			coin_sound: coin_sound,
         };
         Ok(s)
     }
