@@ -11,8 +11,8 @@ use ggez::nalgebra as na;
 use ggez::timer;
 use ggez::{Context, GameResult};
 
-const WINDOW_WIDTH: f32 = 1200.0;
-const WINDOW_HEIGHT: f32 = 800.0;
+const WINDOW_WIDTH: f32 = 1000.0;
+const WINDOW_HEIGHT: f32 = 600.0;
 
 const SHRINK: f32 = 20.0;
 
@@ -519,11 +519,9 @@ fn clamp_object(obj: &mut Object, boundary: Rect) {
 
 fn move_object(obj: &mut Object, dt: f32) {
         let mut vel = obj.vel;
-        println!("x{} y{}", vel.x, vel.y);
         if (vel.x != 0.0 || vel.y != 0.0) {
             vel = vel.normalize();
         }
-        println!("x{} y{}", vel.x, vel.y);
         obj.pos.x += vel.x * obj.speed * dt;
         obj.pos.y += vel.y * obj.speed * dt;
 }
