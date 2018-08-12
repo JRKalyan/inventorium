@@ -6,18 +6,16 @@ use ggez::audio;
 use ggez::conf;
 use ggez::event::{self, EventHandler, Keycode, Mod};
 use ggez::graphics;
-use ggez::graphics::{Point2, Vector2, Rect, Color};
+use ggez::graphics::{Point2, Vector2, Rect, Color, Text, Font};
 use ggez::nalgebra as na;
 use ggez::timer;
-use ggez::{Context, ContextBuilder, GameResult};
+use ggez::{Context, GameResult};
 
-const WINDOW_WIDTH: f32 = 1200.0;
-const WINDOW_HEIGHT: f32 = 800.0;
-const UI_WIDTH: f32 = 200.0;
+const WINDOW_WIDTH: f32 = 400.0;
+const WINDOW_HEIGHT: f32 = 400.0;
 
 const SHRINK: f32 = 20.0;
 
-const PLAYER_HEALTH: f32 = 1.0;
 const PLAYER_RADIUS: f32 = 8.0;
 
 const MAIN_COLOR: Color = Color {
@@ -81,21 +79,41 @@ struct State {
     dirty: bool,
     mousex: f32,
     mousey: f32,
+    score_display: Text,
+    ammo_display: Text,
+    over_display: Text,
+    font: Font,
+    over: bool,
 }
 
 impl ggez::event::EventHandler for State {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
-        // TODO restrict the frame rate
-        let seconds = 0.1;
+        if self.boundary.h <= self.player.radius || 
+            self.boundary.w <= self.player.radius {
+            self.over = true;
+            return Ok(());
+        }
+        let dt = timer::get_delta(ctx);
+        let seconds = dt.subsec_nanos() as f32;
+        let seconds = seconds / 1000000000.0;
         self.move_player(seconds);
         self.update_angle();
-        // TODO move each ball
         for ball in &mut self.enemies {
             move_ball(ball, seconds, self.boundary);
+        }
+        for shot in &mut self.shots {
+            if move_shot(shot, seconds, self.boundary) {
+                self.shrink_target = match self.shrink_target {
+                    Some(t) => Some(t + SHRINK),
+                    None => Some(SHRINK)
+                };
+            }
         }
 
         if self.player.collides_with(&self.coin) {
             self.score += 1;
+            self.ammo += 1;
+            self.dirty = true;
             self.spawn_enemy();
             self.coin.pos = self.random_location(self.coin.radius);
             clamp_object(&mut self.coin, self.boundary);
@@ -108,35 +126,75 @@ impl ggez::event::EventHandler for State {
                 };
                 enemy.alive = false;
             }
+            for shot in &mut self.shots {
+                if enemy.collides_with(shot) {
+                    enemy.alive = false;
+                    shot.alive = false;
+                    self.score += 1;
+                    self.dirty = true;
+                }
+            }
         }
         self.shrink_boundary();
         self.enemies.retain(|e| {e.alive});
         self.shots.retain(|s| {s.alive});
+
+        // update ui
+        if self.dirty {
+            let score_str = format!("score: {}", self.score);
+            let ammo_str = format!("ammo: {}", self.ammo);
+
+            self.score_display = Text::new(ctx, &score_str, &self.font).unwrap();
+            self.ammo_display = Text::new(ctx, &ammo_str, &self.font).unwrap();
+        }
         Ok(())
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         graphics::clear(ctx);
-        // draw the stage background
         graphics::set_color(ctx, BACK_COLOR);
-        graphics::rectangle(
-            ctx,
-            graphics::DrawMode::Fill,
-            self.boundary);
-
-        draw_obj(&self.player, ctx, MAIN_COLOR);
-        self.draw_turret(ctx);
-        draw_obj(&self.coin, ctx, COIN_COLOR);
-        for enemy in &self.enemies {
-            draw_obj(enemy, ctx, ENEMY_COLOR);
+        if !self.over {
+            graphics::rectangle(
+                ctx,
+                graphics::DrawMode::Fill,
+                self.boundary);
+            draw_obj(&self.player, ctx, MAIN_COLOR);
+            self.draw_turret(ctx);
+            draw_obj(&self.coin, ctx, COIN_COLOR);
+            for enemy in &self.enemies {
+                draw_obj(enemy, ctx, ENEMY_COLOR);
+            }
+            for shot in &self.shots {
+                draw_obj(shot, ctx, MAIN_COLOR);
+            }
         }
+        else {
+            graphics::set_color(ctx, MAIN_COLOR);
+            graphics::rectangle(
+                ctx,
+                graphics::DrawMode::Fill,
+                self.boundary);
+        }
+
+        // draw ui
+        graphics::set_color(ctx, BACK_COLOR);
+        let score_location = Point2::new(20.0, 3.0);
+        let ammo_location = Point2::new(120.0, 3.0);
+        let over_location = Point2::new(WINDOW_WIDTH / 2.0 - 150.0, WINDOW_HEIGHT / 2.0);
+        if self.over {
+            graphics::draw(ctx, &self.over_display, over_location, 0.0);
+        }
+        graphics::draw(ctx, &self.score_display, score_location, 0.0);
+        graphics::draw(ctx, &self.ammo_display, ammo_location, 0.0);
+
+
         graphics::present(ctx);
         std::thread::yield_now();
         Ok(())
     }
     // TODO keyup keydown callbacks
     fn key_down_event(&mut self, 
-                      _ctx: &mut Context, 
+                      ctx: &mut Context, 
                       keycode: Keycode, 
                       _keymod: Mod, 
                       repeat: bool) {
@@ -157,8 +215,22 @@ impl ggez::event::EventHandler for State {
             Keycode::D => {
                 self.player.vel.x += 1.0;
             }
+            Keycode::Space => {
+                if (self.ammo > 0) {
+                    self.fire_shot();
+                    self.ammo -= 1;
+                    self.dirty = true;
+                }
+            }
+            Keycode::Return => {
+                if self.over {
+                    self.reset(ctx);
+                }
+            }
+            Keycode::Escape => {
+                ctx.quit().unwrap();
+            }
             _ => (),
-
         }
     }
     fn key_up_event(&mut self, 
@@ -221,25 +293,8 @@ fn main() {
     };
     let ctx = &mut Context::load_from_conf("LD42", "John Kalyan", c).unwrap();
     graphics::set_background_color(ctx, MAIN_COLOR);
-
-    let padding = 10.0;
-    let state = &mut State { 
-        player: create_player(),
-        enemies: Vec::new(),
-        shots: Vec::new(),
-        boundary: Rect::new(UI_WIDTH + padding,
-                            0.0 + padding, WINDOW_WIDTH - UI_WIDTH - 2.0 * padding,
-                            WINDOW_HEIGHT - 2.0 * padding),
-        score: 0,
-        coin: create_coin(),
-        shrink_target: None,
-        ammo: 0,
-        angle: Vector2::new(1.0, 0.0),
-        dirty: true,
-        mousex: 0.0,
-        mousey: 0.0
-    };
-
+    let font = graphics::Font::default_font().unwrap();
+    let state = &mut State::new(ctx, font).unwrap();
     event::run(ctx, state).unwrap();
 }
 
@@ -247,7 +302,7 @@ fn main() {
 fn create_player() -> Object {
     // TODO spawn the player in a better spot
     Object {
-        pos: Point2::new(UI_WIDTH + 30.0, WINDOW_HEIGHT / 2.0),
+        pos: Point2::new(30.0, WINDOW_HEIGHT / 2.0),
         vel: Vector2::new(0.0, 0.0),
         alive: true,
         radius: PLAYER_RADIUS,
@@ -346,6 +401,53 @@ impl State {
         };
         self.shots.push(shot);
     }
+
+    fn new(ctx: &mut Context, font: Font) -> GameResult<State> {
+        let score_display = Text::new(ctx, "score:", &font)?;
+        let ammo_display = Text::new(ctx, "ammo:", &font)?;
+        let over_display = Text::new(ctx, "game over (ENTER to play again, ESC to quit)", &font)?;
+        let padding = 20.0;
+        let s = State { 
+            player: create_player(),
+            enemies: Vec::new(),
+            shots: Vec::new(),
+            boundary: Rect::new(padding,
+                                padding, 
+                                WINDOW_WIDTH - 2.0 * padding,
+                                WINDOW_HEIGHT - 2.0 * padding),
+            score: 0,
+            coin: create_coin(),
+            shrink_target: None,
+            ammo: 0,
+            angle: Vector2::new(1.0, 0.0),
+            dirty: true,
+            mousex: 0.0,
+            mousey: 0.0,
+            score_display: score_display,
+            ammo_display: ammo_display,
+            over_display: over_display,
+            font: font,
+            over: false
+        };
+        Ok(s)
+    }
+
+    fn reset(&mut self, ctx: &mut Context) {
+        let padding = 20.0;
+        self.player = create_player();
+        self.enemies =  Vec::new();
+        self.shots = Vec::new();
+        self.boundary = Rect::new(padding,
+                                  padding,
+                                  WINDOW_WIDTH - 2.0 * padding,
+                                  WINDOW_HEIGHT - 2.0 * padding);
+        self.over = false;
+        self.score = 0;
+        self.coin = create_coin();
+        self.shrink_target = None;
+        self.ammo = 0;
+        self.dirty = true;
+    }
 }
 
 fn move_ball(ball: &mut Object, dt: f32, boundary: Rect) {
@@ -371,6 +473,20 @@ fn move_ball(ball: &mut Object, dt: f32, boundary: Rect) {
         ball.vel.y = -ball.vel.y;
     }
 }
+
+fn move_shot(ball: &mut Object, dt: f32, boundary: Rect) -> bool {
+    let left = boundary.x + ball.radius;
+    let right = boundary.x + boundary.w - ball.radius;
+    let top  = boundary.y + ball.radius;
+    let bot = boundary.y + boundary.h - ball.radius;
+    move_object(ball, dt);
+    if ball.pos.x > right || ball.pos.x < left || ball.pos.y < top || ball.pos.y > bot {
+        ball.alive = false;
+        return true;
+    }
+    return false;
+}
+
 
 
 fn draw_obj(obj: &Object, ctx: &mut Context, color: Color) {
@@ -410,4 +526,4 @@ fn move_object(obj: &mut Object, dt: f32) {
         // according to how much time has passed (multiply the vector by time and move)
         obj.pos.x += vel.x * obj.speed * dt;
         obj.pos.y += vel.y * obj.speed * dt;
-    }
+}
