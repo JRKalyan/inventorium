@@ -60,12 +60,6 @@ impl Object {
     }
 }
 
-/*
- * IDEA: give the player a gun and if they hit the wall then it shrinks but if they hit an
- * enemy then it kills them
- * TODO - fix the shrinking unevenly.
- */
-
 struct State {
     player: Object,
     enemies: Vec<Object>,
@@ -200,13 +194,11 @@ impl ggez::event::EventHandler for State {
         std::thread::yield_now();
         Ok(())
     }
-    // TODO keyup keydown callbacks
     fn key_down_event(&mut self, 
                       ctx: &mut Context, 
                       keycode: Keycode, 
                       _keymod: Mod, 
                       repeat: bool) {
-        // TODO change based on game state
         if repeat {
             return;
         }
@@ -327,7 +319,6 @@ fn create_coin() -> Object {
     }
 }
 
-// TODO extract the player function
 impl State {
     fn move_player(&mut self, dt: f32) {
         move_object(&mut self.player, dt);
