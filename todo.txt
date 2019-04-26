@@ -1,15 +1,2 @@
 todo:
-- go through todos
-- sound / music
-- implement turret
-- after locking fps, balance player movement
-- normalize velocity for player before multiplying
-- figure out how to publish
-- add end screen rather than game crash
-  * when stage size is too small, set game over flag
-    when this flag is true, dont render player, enemies or coin
-    also don't try to move coin/player/enemies
-    just set the target appropriately to get te actual size to
-    shrink then once it is negative, display the game over press
-    enter to continue string in the center of the screcn
-
+- done... for now
